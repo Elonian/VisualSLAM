@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Local data and generated artifacts
+results/dataset_*/
+eval/*.csv
+eval/*.md
+eval/plot_*.png
+!eval/README.md
+
+# Raw datasets
+# Keep folder structure files (README) but ignore large dataset payloads
+data/dataset*/
+
+# IDE
+.vscode/
+.idea/
