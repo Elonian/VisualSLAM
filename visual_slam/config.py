@@ -12,6 +12,8 @@ class ImuEkfConfig:
     init_pose_sigma: float = 1e-2
     process_sigma_linear: float = 5e-2
     process_sigma_angular: float = 5e-2
+    ground_plane: bool = False
+    ground_height: float = 0.0
 
     @property
     def process_noise(self) -> np.ndarray:
@@ -33,11 +35,12 @@ class ImuEkfConfig:
 class LandmarkEkfConfig:
     """Configuration for Part 3 landmark EKF updates."""
 
-    feature_stride: int = 4
+    feature_stride: int = 1
     init_landmark_sigma: float = 100.0
     meas_sigma_left_px: float = 2.0
     meas_sigma_right_px: float = 2.0
     reprojection_gate_px: float = 50.0
+    mahalanobis_gate_chi2: float = 13.277
 
     @property
     def meas_noise(self) -> np.ndarray:
@@ -61,9 +64,16 @@ class SlamConfig:
 
     max_pose_features_per_step: int = 40
     min_pose_features_per_step: int = 6
-    pose_meas_sigma_px: float = 3.0
+    refinement_passes: int = 2
+    pose_meas_sigma_px: float = 2.0
     pose_jac_eps: float = 1e-4
     pose_gate_px: float = 60.0
+    landmark_keep_fraction: float = 0.35
+    large_landmark_keep_fraction: float = 0.12
+    large_landmark_threshold: int = 15000
+    min_landmark_observations: int = 2
+    init_pose_sigma: float = 1e-5
+    init_landmark_sigma: float = 0.1
 
     @property
     def pose_meas_noise(self) -> np.ndarray:

@@ -1,0 +1,11 @@
+{
+  "dataset": "01",
+  "feature_source": "part2_tracks",
+  "feature_stride": 1,
+  "landmarks_initialized": 15295,
+  "landmarks_total": 15295,
+  "mean_reprojection_error_px": 6.099511857621057,
+  "num_steps": 3600,
+  "part": 3,
+  "path_length_m": 202.22554333207984
+}

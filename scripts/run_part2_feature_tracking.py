@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts._common import add_common_args, add_part2_args, tracking_cfg_from_args
+from scripts._common import add_common_args, add_part2_args, resolve_datasets, tracking_cfg_from_args
 from visual_slam.pipeline import run_part2
 
 
@@ -21,7 +21,7 @@ def main() -> None:
 
     tcfg = tracking_cfg_from_args(args)
     had_error = False
-    for ds in args.datasets:
+    for ds in resolve_datasets(args):
         try:
             out = run_part2(args.data_dir, args.output_root, ds, cfg=tcfg)
             print(f'[Part2] Dataset {out.dataset_id} complete -> {out.output_dir / "part2_feature_tracks.npz"}')

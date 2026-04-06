@@ -14,8 +14,22 @@ def trajectory_path_length(world_T_imu: np.ndarray) -> float:
     return float(np.linalg.norm(p[1:] - p[:-1], axis=1).sum())
 
 
+def trajectory_path_length_xy(world_T_imu: np.ndarray) -> float:
+    p = np.asarray(world_T_imu[:, :2, 3], dtype=np.float64)
+    if p.shape[0] < 2:
+        return 0.0
+    return float(np.linalg.norm(p[1:] - p[:-1], axis=1).sum())
+
+
 def final_translation(world_T_imu: np.ndarray) -> float:
     p = np.asarray(world_T_imu[:, :3, 3], dtype=np.float64)
+    if p.shape[0] == 0:
+        return 0.0
+    return float(np.linalg.norm(p[-1] - p[0]))
+
+
+def final_translation_xy(world_T_imu: np.ndarray) -> float:
+    p = np.asarray(world_T_imu[:, :2, 3], dtype=np.float64)
     if p.shape[0] == 0:
         return 0.0
     return float(np.linalg.norm(p[-1] - p[0]))

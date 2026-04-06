@@ -4,9 +4,6 @@ from dataclasses import dataclass
 from typing import Tuple
 
 import numpy as np
-from scipy.linalg import expm
-
-
 OPTICAL_T_CAM = np.array(
     [
         [0.0, -1.0, 0.0, 0.0],
@@ -53,9 +50,39 @@ def ad_se3(xi: np.ndarray) -> np.ndarray:
     return A
 
 
+def adjoint_pose(T: np.ndarray) -> np.ndarray:
+    """Adjoint representation Ad_T for SE(3) with twist ordering [v, w]."""
+    R = np.asarray(T[:3, :3], dtype=np.float64)
+    p = np.asarray(T[:3, 3], dtype=np.float64).reshape(3)
+    A = np.zeros((6, 6), dtype=np.float64)
+    A[:3, :3] = R
+    A[:3, 3:] = skew(p) @ R
+    A[3:, 3:] = R
+    return A
+
+
 def se3_exp(xi: np.ndarray) -> np.ndarray:
-    """Exponential map from se(3) twist vector to SE(3) pose."""
-    return expm(hat_se3(xi))
+    """Closed-form exponential map from se(3) twist vector to SE(3) pose."""
+    xi = np.asarray(xi, dtype=np.float64).reshape(6)
+    v = xi[:3]
+    w = xi[3:]
+
+    T = np.eye(4, dtype=np.float64)
+    theta = float(np.linalg.norm(w))
+    if theta < 1e-9:
+        T[:3, 3] = v
+        return T
+
+    I3 = np.eye(3, dtype=np.float64)
+    K = skew(w) / theta
+    K2 = K @ K
+
+    R = I3 + np.sin(theta) * K + (1.0 - np.cos(theta)) * K2
+    V = I3 + ((1.0 - np.cos(theta)) / theta) * K + ((theta - np.sin(theta)) / theta) * K2
+
+    T[:3, :3] = R
+    T[:3, 3] = V @ v
+    return T
 
 
 def pose_inverse(T: np.ndarray) -> np.ndarray:
@@ -139,6 +166,50 @@ class StereoProjector:
         HL = JL @ dql_dm
         HR = JR @ dqr_dm
         return np.vstack([HL, HR])
+
+    def pose_jacobian_left(
+        self,
+        world_T_imu: np.ndarray,
+        landmark_w: np.ndarray,
+    ) -> np.ndarray:
+        """Return d(z_stereo)/d(xi_pose) for left perturbations T_new = Exp(xi) @ T."""
+        m = np.asarray(landmark_w, dtype=np.float64).reshape(3)
+        imu_T_world = pose_inverse(world_T_imu)
+        R_iw = imu_T_world[:3, :3]
+        d_pimu_d_xi = R_iw @ np.hstack([-np.eye(3, dtype=np.float64), skew(m)])
+
+        oL_T_imu = OPTICAL_T_CAM @ self.calib.camL_T_imu
+        oR_T_imu = OPTICAL_T_CAM @ self.calib.camR_T_imu
+        m_h = homogenize(m)
+        qL = (oL_T_imu @ imu_T_world @ m_h)[:3]
+        qR = (oR_T_imu @ imu_T_world @ m_h)[:3]
+
+        JL = project_jacobian(self.calib.K_left, qL)
+        JR = project_jacobian(self.calib.K_right, qR)
+        if not np.isfinite(JL).all() or not np.isfinite(JR).all():
+            return np.full((4, 6), np.nan, dtype=np.float64)
+
+        HL = JL @ oL_T_imu[:3, :3] @ d_pimu_d_xi
+        HR = JR @ oR_T_imu[:3, :3] @ d_pimu_d_xi
+        return np.vstack([HL, HR])
+
+    def pose_jacobian_left_numeric(
+        self,
+        world_T_imu: np.ndarray,
+        landmark_w: np.ndarray,
+        eps: float = 1e-4,
+    ) -> np.ndarray:
+        """Finite-difference left-perturbation Jacobian for validation."""
+        J = np.zeros((4, 6), dtype=np.float64)
+        for j in range(6):
+            d = np.zeros(6, dtype=np.float64)
+            d[j] = eps
+            T_plus = se3_exp(d) @ world_T_imu
+            T_minus = se3_exp(-d) @ world_T_imu
+            z_plus = self.predict_stereo(T_plus, landmark_w)
+            z_minus = self.predict_stereo(T_minus, landmark_w)
+            J[:, j] = (z_plus - z_minus) / (2.0 * eps)
+        return J
 
     def pose_jacobian_numeric(
         self,

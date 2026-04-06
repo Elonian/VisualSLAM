@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts._common import add_common_args, pipeline_cfg_from_args
+from scripts._common import add_common_args, pipeline_cfg_from_args, resolve_datasets
 from visual_slam.pipeline import run_part1
 from visual_slam.utils import describe_gpu
 
@@ -17,6 +17,7 @@ from visual_slam.utils import describe_gpu
 def main() -> None:
     parser = argparse.ArgumentParser(description='Run Project 3 Part 1: IMU EKF prediction.')
     add_common_args(parser)
+    parser.set_defaults(process_sigma_linear=0.5, process_sigma_angular=0.1)
     args = parser.parse_args()
 
     cfg = pipeline_cfg_from_args(args)
@@ -24,7 +25,7 @@ def main() -> None:
     print(f'[Runtime] {gpu.message}')
 
     had_error = False
-    for ds in args.datasets:
+    for ds in resolve_datasets(args):
         try:
             out = run_part1(args.data_dir, args.output_root, ds, cfg)
             print(f'[Part1] Dataset {out.dataset_id} complete -> {out.output_dir / "part1_imu_prediction.npz"}')

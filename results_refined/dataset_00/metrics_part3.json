@@ -1,0 +1,11 @@
+{
+  "dataset": "00",
+  "feature_source": "dataset_features",
+  "feature_stride": 1,
+  "landmarks_initialized": 5206,
+  "landmarks_total": 5376,
+  "mean_reprojection_error_px": 6.561136147420452,
+  "num_steps": 3755,
+  "part": 3,
+  "path_length_m": 214.4054149294231
+}

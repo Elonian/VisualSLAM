@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts._common import add_common_args, pipeline_cfg_from_args
+from scripts._common import add_common_args, pipeline_cfg_from_args, resolve_datasets
 from visual_slam.pipeline import run_pipeline
 from visual_slam.utils import describe_gpu
 
@@ -30,7 +30,7 @@ def main() -> None:
     print(f'[Runtime] {gpu.message}')
 
     had_error = False
-    for ds in args.datasets:
+    for ds in resolve_datasets(args):
         try:
             out = run_pipeline(
                 data_dir=args.data_dir,

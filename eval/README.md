@@ -5,7 +5,7 @@ Use this folder to aggregate and visualize metrics after running scripts under `
 ## 1) Build metrics table
 
 ```bash
-python eval/compute_metrics.py --results-root results --datasets 00 01 --output-dir eval
+python eval/compute_metrics.py --results-root results --datasets 00 02 --output-dir eval
 ```
 
 Outputs:
@@ -24,6 +24,6 @@ python eval/build_report_assets.py \
 Outputs:
 - `eval/plot_part1_path_length.png`
 - `eval/plot_part3_landmarks_initialized.png`
-- `eval/plot_part4_endpoint_improvement.png`
+- `eval/plot_part4_pose_shift.png`
 - `eval/plot_part4_pose_residual.png`
 - `eval/report_assets.md`

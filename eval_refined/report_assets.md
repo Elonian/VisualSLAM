@@ -1,0 +1,15 @@
+# VisualSLAM Evaluation Assets
+
+## Metrics Table
+
+|   dataset |   part1_path_length_m |   part1_endpoint_m |   part2_feature_count |   part3_landmarks_initialized |   part3_mean_reproj_px |   part4_path_pred_m |   part4_path_corr_m |   part4_endpoint_pred_m |   part4_endpoint_corr_m |   part4_landmarks_initialized |   part4_mean_pose_residual_px |   part4_mean_landmark_residual_px |   endpoint_delta_m |   mean_pose_shift_m |
+|----------:|----------------------:|-------------------:|----------------------:|------------------------------:|-----------------------:|--------------------:|--------------------:|------------------------:|------------------------:|------------------------------:|------------------------------:|----------------------------------:|-------------------:|--------------------:|
+|        00 |               214.405 |            163.697 |                  5376 |                           990 |                22.6452 |             214.405 |             215.48  |                 163.697 |                 163.501 |                           994 |                       28.1197 |                           22.4483 |          -0.196325 |             4.98776 |
+|        02 |               276.725 |            182.834 |                  5176 |                           182 |                17.3487 |             276.725 |             286.761 |                 182.834 |                 190.05  |                           179 |                       16.07   |                           16.9686 |           7.21692  |            12.06    |
+
+## Charts
+
+![Part1 Path Length](/mntdata/src/Visual-Inertial-SLAM/eval_refined/plot_part1_path_length.png)
+![Part3 Initialized Landmarks](/mntdata/src/Visual-Inertial-SLAM/eval_refined/plot_part3_landmarks_initialized.png)
+![Part4 Mean Pose Shift](/mntdata/src/Visual-Inertial-SLAM/eval_refined/plot_part4_pose_shift.png)
+![Part4 Mean Pose Residual](/mntdata/src/Visual-Inertial-SLAM/eval_refined/plot_part4_pose_residual.png)

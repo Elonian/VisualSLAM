@@ -63,9 +63,9 @@ def compute_row(results_root: Path, dataset: str) -> Dict[str, float | int | str
     }
 
     if np.isfinite(row['part4_endpoint_pred_m']) and np.isfinite(row['part4_endpoint_corr_m']):
-        row['endpoint_improvement_m'] = float(row['part4_endpoint_pred_m'] - row['part4_endpoint_corr_m'])
+        row['endpoint_delta_m'] = float(row['part4_endpoint_corr_m'] - row['part4_endpoint_pred_m'])
     else:
-        row['endpoint_improvement_m'] = np.nan
+        row['endpoint_delta_m'] = np.nan
 
     # Optional consistency metric from part4 npz.
     slam_npz = d / 'part4_vi_slam.npz'

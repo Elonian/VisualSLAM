@@ -1,0 +1,16 @@
+{
+  "dataset": "00",
+  "endpoint_corr_m": 163.32797905928294,
+  "endpoint_pred_m": 163.69697891484375,
+  "feature_source": "dataset_features",
+  "features_total_input": 5376,
+  "features_used_slam": 1715,
+  "landmarks_initialized": 1676,
+  "landmarks_total": 1715,
+  "mean_landmark_residual_px": 5.1580043154675215,
+  "mean_pose_residual_px": 4.488782799456555,
+  "num_steps": 3755,
+  "part": 4,
+  "path_length_corr_m": 214.6815702565489,
+  "path_length_pred_m": 214.4054149294231
+}

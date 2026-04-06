@@ -1,99 +1,87 @@
 # Visual-Inertial SLAM
 
-This project estimates a moving sensor platform trajectory and a 3D landmark map from calibrated stereo observations and inertial measurements. The pipeline is built around continuous pose propagation on `SE(3)`, stereo landmark initialization, and recursive visual corrections through EKF updates.
+## Abstract
 
-The repository also includes two background documents:
+This project solves a calibrated stereo visual-inertial SLAM problem from body-frame linear velocity, body-frame angular velocity, stereo camera observations, and camera-to-IMU extrinsic calibration. The pipeline estimates a pose trajectory on `SE(3)`, reconstructs a persistent landmark map in the world frame, and then uses repeated stereo reprojection constraints to reduce the drift of the inertial prediction.
 
-- [ECE276A_PR3.pdf](/mntdatalora/src/VisualSLAM/ECE276A_PR3.pdf)
-- [ECE276A_Project3.pdf](/mntdatalora/src/VisualSLAM/ECE276A_Project3.pdf)
+The repository is organized around the four stages required by the project brief:
 
-## Example Outputs
+1. IMU-only pose propagation
+2. Stereo feature tracking
+3. Landmark-only EKF mapping with fixed poses
+4. Visual-inertial SLAM with alternating prediction and correction
 
-The panels below are built from the PNGs already present in the repository and show the expected style of trajectory and landmark visualizations.
+The refined outputs referenced in this README are stored under [`results_refined/`](results_refined). For presentation quality, the top-level gallery uses large combined panel assets generated from the per-dataset outputs by [`scripts/build_readme_panels.py`](scripts/build_readme_panels.py).
 
-![Dataset 00 Example Outputs](docs/images/panel_dataset00.png)
-![Dataset 01 Example Outputs](docs/images/panel_dataset01.png)
+## Output Gallery
 
-## Problem Formulation
+### Part 1 IMU Trajectory Evolution
 
-Let the platform pose at time `t` be `T_t in SE(3)`, with rotation `R_t in SO(3)` and translation `p_t in R^3`. Let `m_j in R^3` denote the `j`th landmark in the world frame. The inputs are:
+![Part 1 Animated Panel](results_refined/readme_part1_animated_panel.gif)
 
-- body-frame linear velocity `v_t`
-- body-frame angular velocity `w_t`
-- calibrated stereo observations of image features
+IMU-only localization shows how pure dead reckoning behaves before any visual correction is applied. The trajectories are integrated directly on `SE(3)` and are intentionally left unconstrained so the effect of the inertial model is visible.
 
-The motion model is written in the Lie group form
+### Part 2 Stereo Feature Tracking Evolution
 
-```math
-T_{t+1} = T_t \exp(\Delta t \, \hat{\xi}_t), \qquad
-\xi_t = \begin{bmatrix} v_t \\ w_t \end{bmatrix}
-```
+![Part 2 Animated Panel](results_refined/readme_part2_animated_panel.gif)
 
-where `hat(.)` maps a twist vector to the corresponding element of `se(3)`.
+The tracking stage shows stereo correspondences and temporal motion together with the evolving robot path and track statistics. These regenerated tracks are especially important for `dataset01` and `dataset02`, where they outperform the bundled feature tensors in temporal coverage.
 
-For a landmark `m_j`, the stereo measurement model is a projection of the landmark into the left and right cameras:
+### Part 3 Landmark Map Evolution
 
-```math
-z_{t,j} = \pi\!\left(T_{\text{cam}\leftarrow \text{imu}} \, T_t^{-1} \, m_j\right) + n_{t,j}
-```
+![Part 3 Animated Panel](results_refined/readme_part3_animated_panel.gif)
 
-with `pi(.)` the perspective projection and `n_{t,j}` the image measurement noise. The full estimation problem is therefore a nonlinear state-estimation problem over rigid-body motion and static scene structure.
+Landmark mapping fixes the IMU trajectory and pushes the uncertainty into the map. The result is an evolving stereo-informed landmark cloud aligned to the inertial path.
 
-## Estimation Strategy
+### Part 4 Visual-Inertial SLAM Evolution
 
-The pipeline is split into four stages.
+![Part 4 Animated Panel](results_refined/readme_part4_animated_panel.gif)
 
-`Part 1`
-Propagate pose from inertial measurements only.
+The final SLAM stage combines the IMU prior with stereo reprojection corrections. The panel shows how the corrected trajectory diverges from or improves on the IMU-only path depending on the visual evidence available in each dataset.
 
-`Part 2`
-Generate stereo feature tracks from images when tracks are not already supplied.
-
-`Part 3`
-Estimate the landmark map while treating the inertial trajectory as fixed.
-
-`Part 4`
-Perform visual-inertial SLAM by alternating inertial prediction and visual correction.
-
-This separation is useful because it exposes the behavior of each component independently before combining them into the full estimator.
-
-## Installation
+## Setup
 
 From the project root:
 
 ```bash
-cd /mntdatalora/src/VisualSLAM
+cd /mntdata/src/Visual-Inertial-SLAM
 pip install -r requirements.txt
 ```
 
-Required packages:
+Core dependencies:
 
 - `numpy`
 - `scipy`
 - `matplotlib`
+- `opencv-python-headless`
 - `pandas`
-- `opencv-python`
 - `tabulate`
+- `Pillow`
 
 Optional:
 
-- `cupy` for the `--use-gpu` path
+- `cupy` for the CUDA-backed linear algebra path where supported
+
+## References
+
+- [ECE276A_PR3.pdf](ECE276A_PR3.pdf): assignment specification
+- [ECE276A_Project3.pdf](ECE276A_Project3.pdf): alternate project writeup used as a secondary reference
 
 ## Data Layout
 
-Place data in the following structure:
+Expected directory structure:
 
 ```text
 data/
   dataset00/
     dataset00.npy
-    dataset00_imgs.npy
+    dataset00_imgs.npy or stereo video files
   dataset01/
     dataset01.npy
-    dataset01_imgs.npy
+    dataset01_imgs.npy or stereo video files
   dataset02/
     dataset02.npy
-    dataset02_imgs.npy
+    dataset02_imgs.npy or stereo video files
 ```
 
 Expected keys inside `datasetXX.npy`:
@@ -105,231 +93,264 @@ Expected keys inside `datasetXX.npy`:
 - `K_r`
 - `extL_T_imu`
 - `extR_T_imu`
-- `features` if tracked features are already available
+- `features` when a bundled stereo feature tensor is provided
 
-Accepted data layouts:
+The loader normalizes several common array layouts for velocities, timestamps, stereo images, and feature tensors, so the scripts can work across the provided datasets without manual reshaping.
 
-- `v_t`, `w_t`: `(T, 3)` or `(3, T)`
-- `features`: logically `(4, M, T)`; several common permutations are normalized by the loader
-- `datasetXX_imgs.npy`: dict with left/right images or stereo stacks such as `(T, 2, H, W)` or `(2, T, H, W)`
+## Execution Order
 
-More detail is in [data/README.md](/mntdatalora/src/VisualSLAM/data/README.md).
-
-## Recommended Run Order
-
-For `dataset00` and `dataset01`:
-
-1. Run Part 1
-2. Run Part 3
-3. Run Part 4
-4. Run evaluation
-
-For `dataset02`:
-
-1. Run Part 2 if tracked features are not present in `dataset02.npy`
-2. Run Part 3
-3. Run Part 4
-4. Run evaluation
-
-## Part 1: IMU Pose Propagation
-
-### Theory
-
-The inertial stage treats the measured linear and angular velocities as a body-frame twist and integrates the pose directly on `SE(3)`. This avoids breaking rigid motion into inconsistent Euclidean updates and keeps the pose evolution geometrically correct.
-
-The covariance is propagated with a first-order linearization:
-
-```math
-\Sigma_{t+1} = F_t \Sigma_t F_t^\top + Q_t
-```
-
-where `F_t` is the transition Jacobian induced by the adjoint action of the current motion increment, and `Q_t` is the process noise derived from IMU uncertainty. This stage gives the baseline trajectory and also provides the motion prior used later by the visual updates.
-
-### Run
+Typical full run:
 
 ```bash
-python scripts/run_part1_imu_localization.py \
-  --datasets 00 01 \
-  --data-dir data \
-  --output-root results
+python scripts/run_part1_imu_localization.py --data-dir data --output-root results_refined --datasets 00 01 02
+python scripts/run_part2_feature_tracking.py --data-dir data --output-root results_refined --datasets 00 01 02
+python scripts/run_part3_landmark_mapping.py --data-dir data --output-root results_refined --datasets 00 01 02
+python scripts/run_part4_vi_slam.py --data-dir data --output-root results_refined --datasets 00 01 02
 ```
 
-### Outputs
+Dataset-specific choices used in the refined runs:
 
-- `results/dataset_00/part1_imu_prediction.npz`
-- `results/dataset_00/part1_imu_trajectory.png`
-- `results/dataset_00/metrics_part1.json`
-- `results/dataset_01/part1_imu_prediction.npz`
-- `results/dataset_01/part1_imu_trajectory.png`
-- `results/dataset_01/metrics_part1.json`
+| Dataset | Part 2 source | Part 3 source | Part 4 source | Reason |
+| --- | --- | --- | --- | --- |
+| `00` | tracked from videos | bundled `features` | bundled `features` | the provided tracks are already dense and stable for mapping and SLAM |
+| `01` | tracked from videos | Part 2 tracks | Part 2 tracks | regenerated tracks have much stronger temporal coverage |
+| `02` | tracked from videos | Part 2 tracks | Part 2 tracks | regenerated tracks plus time-aware selection improve SLAM stability |
+
+## Part 1: IMU Localization
+
+### Model
+
+Let `T_k in SE(3)` be the IMU pose at time step `k`. The measured body-frame twist is formed from linear and angular velocity:
+
+```math
+\xi_k =
+\begin{bmatrix}
+v_k \\
+\omega_k
+\end{bmatrix},
+\qquad
+\hat{\xi}_k \in \mathfrak{se}(3).
+```
+
+The pose is propagated on the Lie group:
+
+```math
+T_{k+1} = T_k \exp(\Delta t_k \, \hat{\xi}_k).
+```
+
+This formulation keeps the state on `SE(3)` and avoids mixing Euclidean translation updates with inconsistent rotation updates. The covariance is propagated with a first-order linearization:
+
+```math
+\Sigma_{k+1} = F_k \Sigma_k F_k^\top + Q_k,
+```
+
+where `F_k` is the motion Jacobian induced by the increment and `Q_k` is the IMU process noise. In the refined outputs we do not manually clamp the motion to a ground plane, because the project’s Part 1 is an IMU-only propagation problem rather than a constrained planar estimator.
+
+### Interpretation
+
+Part 1 is the baseline against which all later visual corrections are judged. It captures the short-horizon motion trend well, but it also accumulates drift because there is no visual information forcing the estimate back toward repeated scene structure.
+
+### Static Panel
+
+![Part 1 Static Panel](results_refined/readme_part1_static_panel.png)
+
+### Current Metrics
+
+| Dataset | Steps | Mean `dt` [s] | XY path [m] | XY endpoint [m] | 3D endpoint [m] |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `00` | 3755 | 0.0334 | 182.93 | 147.18 | 163.70 |
+| `01` | 3601 | 0.0335 | 164.79 | 96.35 | 133.65 |
+| `02` | 6393 | 0.0333 | 167.21 | 77.28 | 182.83 |
+
+### Main Outputs
+
+- `part1_imu_prediction.npz`
+- `part1_imu_trajectory.gif`
+- `part1_imu_trajectory.png`
+- `metrics_part1.json`
 
 ## Part 2: Stereo Feature Tracking
 
-### Theory
+### Model
 
-Visual updates require consistent feature correspondences across the stereo pair and across time. This stage detects strong image points in the left image, associates them with the right image to recover disparity, and then tracks them temporally to build a measurement tensor.
-
-The current implementation uses Shi-Tomasi corner detection and Lucas-Kanade optical flow. Conceptually, the tracker is building a sequence
+For each retained track `j`, the stereo measurement at time `k` is
 
 ```math
-z_t = [u_l, v_l, u_r, v_r]^\top
+z_{k,j} =
+\begin{bmatrix}
+u_{k,j}^{l} \\
+v_{k,j}^{l} \\
+u_{k,j}^{r} \\
+v_{k,j}^{r}
+\end{bmatrix}.
 ```
 
-for each feature and each time step. Valid stereo disparity provides depth observability, while temporal consistency allows the same scene point to contribute information over multiple frames.
+The tracker uses Shi-Tomasi detection in the left image, Lucas-Kanade optical flow over time, and left-right association across the stereo pair. The core geometric cue is disparity:
 
-### Run
-
-Use this stage when image tracks need to be generated explicitly.
-
-```bash
-python scripts/run_part2_feature_tracking.py \
-  --datasets 02 \
-  --data-dir data \
-  --output-root results \
-  --max-corners 1500 \
-  --quality-level 0.01 \
-  --min-distance 7
+```math
+d_{k,j} = u_{k,j}^{l} - u_{k,j}^{r},
+\qquad
+z_{k,j}^{\text{depth}} = \frac{f_x b}{d_{k,j}},
 ```
 
-### Outputs
+where `b` is the stereo baseline. Positive, stable disparity gives metric depth observability, while temporal consistency keeps the same scene point alive over many frames. The implementation also filters tracks using forward-backward checks, stereo consistency checks, and track-length constraints.
 
-- `results/dataset_02/part2_feature_tracks.npz`
-- `results/dataset_02/metrics_part2.json`
+### Interpretation
+
+Part 2 is not only a preprocessing stage. It changes the quality of the downstream estimator. In `dataset01` and `dataset02`, the regenerated tracks are denser and more persistent than the bundled feature tensors, which materially improves both landmark mapping and SLAM.
+
+### Static Panel
+
+![Part 2 Static Panel](results_refined/readme_part2_static_panel.png)
+
+### Current Metrics
+
+| Dataset | Track source | Tracks | Median track length [frames] | Median visible / frame | Max visible / frame | Reference median visible / frame |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `00` | `videos` | 13949 | 32 | 230 | 422 | 73 |
+| `01` | `videos` | 15295 | 30 | 260 | 417 | 100 |
+| `02` | `videos` | 12421 | 29 | 82 | 289 | 88 |
+
+### Main Outputs
+
+- `part2_feature_tracks.npz`
+- `part2_feature_tracking.gif`
+- `part2_feature_tracking_montage.png`
+- `part2_feature_stats.png`
+- `part2_feature_comparison.png`
+- `metrics_part2.json`
 
 ## Part 3: Landmark Mapping
 
-### Theory
+### Model
 
-In the mapping stage, the pose trajectory is treated as known and the uncertainty is pushed into the landmark states. A stereo pair gives a direct initialization through disparity:
+Part 3 fixes the IMU trajectory and estimates only the landmark states. Stereo disparity initializes depth:
 
 ```math
-d = u_l - u_r, \qquad
-z = \frac{f_x b}{d}
+d = u^l - u^r,
+\qquad
+z = \frac{f_x b}{d}.
 ```
 
-with `b` the stereo baseline. Once depth is recovered, the back-projected feature is transformed into the world frame to initialize a landmark estimate.
+Given the left image coordinates, the landmark is back-projected into the camera frame:
 
-Each observed landmark is then refined through EKF measurement updates. Since the landmarks are static, there is no landmark motion prediction term; only measurement corrections are applied when a landmark is re-observed. In practical terms, this stage converts sparse stereo correspondences into a globally expressed map consistent with the inertial trajectory.
-
-### Run
-
-```bash
-python scripts/run_part3_landmark_mapping.py \
-  --datasets 00 01 \
-  --data-dir data \
-  --output-root results \
-  --feature-stride 4 \
-  --landmark-gate-px 50
+```math
+m^{c} =
+z
+\begin{bmatrix}
+(u^l - c_x)/f_x \\
+(v^l - c_y)/f_y \\
+1
+\end{bmatrix}.
 ```
 
-If explicit tracks from Part 2 should be used:
+The current camera pose and camera-to-IMU extrinsics then transform this point into the world frame. Once initialized, a landmark receives EKF corrections whenever it is re-observed:
 
-```bash
-python scripts/run_part3_landmark_mapping.py \
-  --datasets 02 \
-  --data-dir data \
-  --output-root results \
-  --track-file results/dataset_02/part2_feature_tracks.npz
+```math
+r = z - h(m),
+\qquad
+K = P H^\top (H P H^\top + R)^{-1},
+\qquad
+m^+ = m + K r.
 ```
 
-### Outputs
+Because the pose is treated as fixed, the computational burden stays in the landmark updates rather than in a full joint state. This makes Part 3 a clean diagnostic stage for checking triangulation, reprojection, initialization quality, and landmark gating without the confounding effect of pose correction.
 
-- `results/dataset_00/part3_landmark_mapping.npz`
-- `results/dataset_00/part3_landmarks_xy.png`
-- `results/dataset_00/metrics_part3.json`
-- `results/dataset_01/part3_landmark_mapping.npz`
-- `results/dataset_01/part3_landmarks_xy.png`
-- `results/dataset_01/metrics_part3.json`
+### Interpretation
+
+The goal of Part 3 is not to close loops or remove inertial drift. It is to test whether the stereo geometry and the map update logic are internally consistent when the pose is assumed known. This is why Part 3 is the right place to compare bundled feature tensors against the Part 2 tracks.
+
+### Static Panel
+
+![Part 3 Static Panel](results_refined/readme_part3_static_panel.png)
+
+### Current Metrics
+
+| Dataset | Feature source | Initialized landmarks | Total landmarks | Mean reprojection error [px] |
+| --- | --- | ---: | ---: | ---: |
+| `00` | `dataset_features` | 5206 | 5376 | 6.56 |
+| `01` | `part2_tracks` | 15295 | 15295 | 6.10 |
+| `02` | `part2_tracks` | 12421 | 12421 | 5.42 |
+
+### Main Outputs
+
+- `part3_landmark_mapping.npz`
+- `part3_landmark_mapping.gif`
+- `part3_landmark_mapping_montage.png`
+- `part3_landmarks_xy.png`
+- `part3_landmark_stats.png`
+- `metrics_part3.json`
 
 ## Part 4: Visual-Inertial SLAM
 
-### Theory
+### Model
 
-The full SLAM stage combines the inertial motion prior with reprojection-based visual corrections. At each step, the filter first predicts the next pose from the IMU, then uses visible landmarks to compute a reprojection residual in image space. That residual is mapped back to a pose correction through a linearized measurement model.
-
-This produces the standard predict-update structure:
+Part 4 combines the inertial motion prior with reprojection-based visual corrections. The predicted pose is
 
 ```math
-\text{predict: } (T_t, \Sigma_t) \rightarrow (T_{t+1}^-, \Sigma_{t+1}^-)
+T_{k+1}^{-} = T_k^{+} \exp(\Delta t_k \, \hat{\xi}_k).
 ```
+
+Visible landmarks generate a stacked stereo residual
 
 ```math
-\text{update: } r = z - h(T_{t+1}^-, m), \qquad
-K = \Sigma^- H^\top (H \Sigma^- H^\top + R)^{-1}
+r = z - h(T^{-}, m),
 ```
 
-The corrected pose is then used to refine the landmark states again. In effect, the inertial stream provides short-horizon motion continuity, while the visual stream suppresses drift by anchoring the estimate to repeated scene structure.
+and the linearized EKF update produces a pose increment
 
-### Run
-
-```bash
-python scripts/run_part4_vi_slam.py \
-  --datasets 00 01 \
-  --data-dir data \
-  --output-root results \
-  --feature-stride 4 \
-  --max-pose-features 40 \
-  --min-pose-features 6 \
-  --pose-gate-px 60
+```math
+K = \Sigma^{-} H^\top (H \Sigma^{-} H^\top + R)^{-1},
+\qquad
+\delta \xi = K r,
+\qquad
+T^{+} = \exp(\widehat{\delta \xi}) T^{-}.
 ```
 
-### Outputs
+The implementation uses the left-perturbation form of the pose update, which is the correct `SE(3)` update model for the current Jacobian convention. In practice, the solver is stabilized by alternating two operations:
 
-- `results/dataset_00/part4_vi_slam.npz`
-- `results/dataset_00/part4_trajectory_comparison.png`
-- `results/dataset_00/part4_landmarks_xy.png`
-- `results/dataset_00/metrics_part4.json`
-- `results/dataset_01/part4_vi_slam.npz`
-- `results/dataset_01/part4_trajectory_comparison.png`
-- `results/dataset_01/part4_landmarks_xy.png`
-- `results/dataset_01/metrics_part4.json`
+1. build or refine landmarks from the current pose estimate
+2. correct the pose trajectory using reprojection residuals against those landmarks
 
-## Run The Full Pipeline
+This is not a fully dense smoothing backend. It is a recursive SLAM pipeline designed to stay numerically stable on the provided datasets while still enforcing meaningful visual corrections.
 
-```bash
-python scripts/run_all.py \
-  --datasets 00 01 \
-  --data-dir data \
-  --output-root results \
-  --max-part 4 \
-  --run-part2-if-missing
-```
+### Interpretation
+
+The most important design choice in the refined runs is the feature source. `dataset00` works best with the bundled features. `dataset01` and `dataset02` work better with the Part 2 track files. `dataset02` also needs time-aware landmark selection so the chosen tracks remain visible across the whole sequence instead of clustering in a small portion of time.
+
+There is no external ground-truth trajectory in the provided project data, so Part 4 is evaluated relative to the IMU-only baseline and by its reprojection residuals, not by absolute pose error against a reference trajectory.
+
+### Static Panel
+
+![Part 4 Static Panel](results_refined/readme_part4_static_panel.png)
+
+### Current Metrics
+
+| Dataset | Feature source | Selected / total features | Initialized landmarks | Mean pose residual [px] | Mean landmark residual [px] | Endpoint distance IMU `->` VI-SLAM [m] |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `00` | `dataset_features` | `1715 / 5376` | 1676 | 4.49 | 5.16 | `163.70 -> 163.33` |
+| `01` | `part2_tracks` | `3824 / 15295` | 3824 | 4.86 | 4.69 | `133.61 -> 129.65` |
+| `02` | `part2_tracks` | `1491 / 12421` | 1491 | 3.93 | 3.65 | `182.83 -> 176.08` |
+
+### Main Outputs
+
+- `part4_vi_slam.npz`
+- `part4_vi_slam.gif`
+- `part4_vi_slam_montage.png`
+- `part4_trajectory_comparison.png`
+- `part4_landmarks_xy.png`
+- `metrics_part4.json`
 
 ## Evaluation
 
-Build aggregate metrics:
+Aggregate evaluation scripts remain under [`eval/`](eval). Typical usage:
 
 ```bash
-python eval/compute_metrics.py \
-  --results-root results \
-  --datasets 00 01 \
-  --output-dir eval
+python eval/compute_metrics.py --results-root results_refined --datasets 00 01 02 --output-dir eval
+python eval/build_report_assets.py --metrics-csv eval/metrics_summary.csv --output-dir eval --output-md eval/report_assets.md
 ```
 
-Generate report-ready plots and markdown tables:
 
-```bash
-python eval/build_report_assets.py \
-  --metrics-csv eval/metrics_summary.csv \
-  --output-dir eval \
-  --output-md eval/report_assets.md
-```
+## License
 
-Generated evaluation artifacts:
-
-- `eval/metrics_summary.csv`
-- `eval/metrics_summary.md`
-- `eval/plot_part1_path_length.png`
-- `eval/plot_part3_landmarks_initialized.png`
-- `eval/plot_part4_endpoint_improvement.png`
-- `eval/plot_part4_pose_residual.png`
-- `eval/report_assets.md`
-
-More detail is in [eval/README.md](/mntdatalora/src/VisualSLAM/eval/README.md).
-
-## Notes
-
-- New runs write outputs under `results/`.
-- The example panels at the top are composed from the PNGs already stored in the repository.
-- `--use-gpu` is optional and currently accelerates only part of the VI-SLAM linear algebra path when CuPy is available.
-- If a dataset already provides tracked features, Part 2 is not required.
+This project is distributed under the license terms provided in [LICENSE](LICENSE).

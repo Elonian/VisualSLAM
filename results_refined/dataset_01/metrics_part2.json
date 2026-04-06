@@ -1,0 +1,14 @@
+{
+  "dataset": "01",
+  "feature_count": 15295,
+  "frame_count": 3600,
+  "max_track_length_frames": 810,
+  "max_visible_features_per_frame": 417,
+  "median_track_length_frames": 30.0,
+  "median_visible_features_per_frame": 260.0,
+  "part": 2,
+  "reference_feature_count": 12787,
+  "reference_median_track_length_frames": 9.0,
+  "reference_median_visible_features_per_frame": 100.0,
+  "track_source": "videos"
+}

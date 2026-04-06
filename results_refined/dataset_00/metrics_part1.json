@@ -1,0 +1,11 @@
+{
+  "dataset": "00",
+  "endpoint_distance_m": 163.69697891484375,
+  "endpoint_distance_xy_m": 147.1789389058164,
+  "ground_plane": false,
+  "mean_dt_s": 0.03338164087934702,
+  "num_steps": 3755,
+  "part": 1,
+  "path_length_m": 214.4054149294231,
+  "path_length_xy_m": 182.9325228533342
+}

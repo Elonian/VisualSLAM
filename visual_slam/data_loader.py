@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -43,6 +43,37 @@ def dataset_images_path(data_dir: Path, dataset: str | int) -> Path:
     return data_dir / f"dataset{ds}" / f"dataset{ds}_imgs.npy"
 
 
+def dataset_left_video_path(data_dir: Path, dataset: str | int) -> Path:
+    ds = normalize_dataset_id(dataset)
+    return data_dir / f"dataset{ds}" / f"dataset{ds}_l.mp4"
+
+
+def dataset_right_video_path(data_dir: Path, dataset: str | int) -> Path:
+    ds = normalize_dataset_id(dataset)
+    return data_dir / f"dataset{ds}" / f"dataset{ds}_r.mp4"
+
+
+def find_stereo_video_paths(data_dir: Path, dataset: str | int) -> Optional[Tuple[Path, Path]]:
+    left = dataset_left_video_path(data_dir, dataset)
+    right = dataset_right_video_path(data_dir, dataset)
+    if left.exists() and right.exists():
+        return left, right
+    return None
+
+
+def discover_dataset_ids(data_dir: Path) -> List[str]:
+    ids: List[str] = []
+    for entry in sorted(data_dir.glob("dataset*")):
+        if not entry.is_dir():
+            continue
+        suffix = entry.name.removeprefix("dataset")
+        if not suffix.isdigit():
+            continue
+        if dataset_file_path(data_dir, suffix).exists():
+            ids.append(normalize_dataset_id(suffix))
+    return ids
+
+
 def _ensure_time_major(arr: np.ndarray) -> np.ndarray:
     arr = np.asarray(arr, dtype=np.float64)
     if arr.ndim != 2:
@@ -63,7 +94,7 @@ def _ensure_features_shape(features: np.ndarray) -> np.ndarray:
     if features.shape[1] == 4:
         return np.transpose(features, (1, 0, 2))
     if features.shape[2] == 4:
-        return np.transpose(features, (2, 1, 0))
+        return np.transpose(features, (2, 0, 1))
     raise DataLoadError(f"Cannot infer feature array orientation from shape {features.shape}")
 
 
@@ -73,6 +104,8 @@ def _extract_images_from_dict(blob: Dict[str, np.ndarray]) -> StereoImages:
         ("img_left", "img_right"),
         ("left_imgs", "right_imgs"),
         ("cam0", "cam1"),
+        ("cam_imgs_L", "cam_imgs_R"),
+        ("cam_imgs_left", "cam_imgs_right"),
     ]
     for k_l, k_r in key_pairs:
         if k_l in blob and k_r in blob:

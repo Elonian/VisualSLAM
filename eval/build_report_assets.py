@@ -45,16 +45,18 @@ def main() -> None:
         )
 
     df = pd.read_csv(args.metrics_csv)
+    if 'dataset' in df.columns:
+        df['dataset'] = df['dataset'].astype(str).str.zfill(2)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     fig1 = args.output_dir / 'plot_part1_path_length.png'
     fig2 = args.output_dir / 'plot_part3_landmarks_initialized.png'
-    fig3 = args.output_dir / 'plot_part4_endpoint_improvement.png'
+    fig3 = args.output_dir / 'plot_part4_pose_shift.png'
     fig4 = args.output_dir / 'plot_part4_pose_residual.png'
 
     _bar_plot(df, 'dataset', 'part1_path_length_m', 'Part 1 IMU Path Length', 'meters', fig1)
     _bar_plot(df, 'dataset', 'part3_landmarks_initialized', 'Part 3 Initialized Landmarks', 'count', fig2)
-    _bar_plot(df, 'dataset', 'endpoint_improvement_m', 'Part 4 Endpoint Improvement', 'meters', fig3)
+    _bar_plot(df, 'dataset', 'mean_pose_shift_m', 'Part 4 Mean Pose Shift', 'meters', fig3)
     _bar_plot(df, 'dataset', 'part4_mean_pose_residual_px', 'Part 4 Mean Pose Residual', 'pixels', fig4)
 
     lines = [
@@ -68,7 +70,7 @@ def main() -> None:
         '',
         f'![Part1 Path Length]({fig1.as_posix()})',
         f'![Part3 Initialized Landmarks]({fig2.as_posix()})',
-        f'![Part4 Endpoint Improvement]({fig3.as_posix()})',
+        f'![Part4 Mean Pose Shift]({fig3.as_posix()})',
         f'![Part4 Mean Pose Residual]({fig4.as_posix()})',
     ]
     args.output_md.write_text('\n'.join(lines), encoding='utf-8')
