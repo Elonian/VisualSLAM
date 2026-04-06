@@ -11,7 +11,6 @@ The repository is organized around the four stages required by the project brief
 3. Landmark-only EKF mapping with fixed poses
 4. Visual-inertial SLAM with alternating prediction and correction
 
-The refined outputs referenced in this README are stored under [`results_refined/`](results_refined). For presentation quality, the top-level gallery uses large combined panel assets generated from the per-dataset outputs by [`scripts/build_readme_panels.py`](scripts/build_readme_panels.py).
 
 ## Output Gallery
 
